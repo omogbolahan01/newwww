@@ -8,6 +8,8 @@ const App = () => {
   const [videos, setVideos] = useState([]);
   const mainVideoRefs = useRef([]);
   const timelineRefs = useRef([]);
+  const isTouching = useRef(false);
+  const touchDebounce = useRef(null);
 
   const timeToSeconds = (time) =>
     time.hours * 3600 + time.minutes * 60 + time.seconds;
@@ -82,25 +84,34 @@ const App = () => {
   };
 
   const handleTimelineTouchMove = (e, index) => {
-    const timeline = e.currentTarget;
-    const rect = timeline.getBoundingClientRect();
-    const touchX = e.touches[0].clientX - rect.left;
-    const width = rect.width;
-    const touchedPercent = touchX / width;
+    if (isTouching.current) return; // Prevent multiple touchmove events being fired
 
-    const mainVideo = mainVideoRefs.current[index];
-    const timelineVideo = timelineRefs.current[index];
-    const duration = mainVideo?.duration || 0;
-    const newTime = duration * touchedPercent;
+    isTouching.current = true;
 
-    if (mainVideo) {
-      mainVideo.currentTime = newTime;
-    }
-    if (timelineVideo) {
-      timelineVideo.currentTime = newTime;
-    }
+    // Debounce touch events
+    clearTimeout(touchDebounce.current);
+    touchDebounce.current = setTimeout(() => {
+      const timeline = e.currentTarget;
+      const rect = timeline.getBoundingClientRect();
+      const touchX = e.touches[0].clientX - rect.left;
+      const width = rect.width;
+      const touchedPercent = touchX / width;
 
-    handleTimeUpdate(index, newTime);
+      const mainVideo = mainVideoRefs.current[index];
+      const timelineVideo = timelineRefs.current[index];
+      const duration = mainVideo?.duration || 0;
+      const newTime = duration * touchedPercent;
+
+      if (mainVideo) {
+        mainVideo.currentTime = newTime;
+      }
+      if (timelineVideo) {
+        timelineVideo.currentTime = newTime;
+      }
+
+      handleTimeUpdate(index, newTime);
+      isTouching.current = false; // Reset after the debounce
+    }, 100);
   };
 
   const syncTimelineWithMain = (index) => {
@@ -108,18 +119,12 @@ const App = () => {
     const timeline = timelineRefs.current[index];
     if (!main || !timeline) return;
 
-    timeline.currentTime = main.currentTime;
-
-    const play = () => timeline.play();
-    const pause = () => timeline.pause();
-
-    main.addEventListener("play", play);
-    main.addEventListener("pause", pause);
-
-    return () => {
-      main.removeEventListener("play", play);
-      main.removeEventListener("pause", pause);
+    const updateTimeline = () => {
+      timeline.currentTime = main.currentTime;
+      requestAnimationFrame(updateTimeline); // Call update on the next frame for smooth sync
     };
+
+    updateTimeline(); // Initialize the update loop
   };
 
   useEffect(() => {
