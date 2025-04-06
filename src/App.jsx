@@ -81,6 +81,28 @@ const App = () => {
     handleTimeUpdate(index, newTime);
   };
 
+  const handleTimelineTouchMove = (e, index) => {
+    const timeline = e.currentTarget;
+    const rect = timeline.getBoundingClientRect();
+    const touchX = e.touches[0].clientX - rect.left;
+    const width = rect.width;
+    const touchedPercent = touchX / width;
+
+    const mainVideo = mainVideoRefs.current[index];
+    const timelineVideo = timelineRefs.current[index];
+    const duration = mainVideo?.duration || 0;
+    const newTime = duration * touchedPercent;
+
+    if (mainVideo) {
+      mainVideo.currentTime = newTime;
+    }
+    if (timelineVideo) {
+      timelineVideo.currentTime = newTime;
+    }
+
+    handleTimeUpdate(index, newTime);
+  };
+
   const syncTimelineWithMain = (index) => {
     const main = mainVideoRefs.current[index];
     const timeline = timelineRefs.current[index];
@@ -239,6 +261,7 @@ const App = () => {
                   {/* Timeline Bar */}
                   <div
                     onClick={(e) => handleTimelineClick(e, index)}
+                    onTouchMove={(e) => handleTimelineTouchMove(e, index)}
                     style={{
                       width: "100%",
                       height: 60,
